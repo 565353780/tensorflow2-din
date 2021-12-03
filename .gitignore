@@ -1,0 +1,11 @@
+# compiled
+__pycache__
+.idea
+
+# dataset
+datasets
+data
+raw_data
+
+# train
+logs
