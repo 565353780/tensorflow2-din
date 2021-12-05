@@ -45,9 +45,6 @@ model = DIN(user_count, item_count, cate_count, cate_list,
              args.user_dim, args.item_dim, args.cate_dim, args.dim_layers)
 
 
-# Board
-train_summary_writer = tf.summary.create_file_writer(args.log_path)
-
 # @tf.function
 def train_one_step(u,i,y,hist_i,sl):
     with tf.GradientTape() as tape:
@@ -63,6 +60,12 @@ def train_one_step(u,i,y,hist_i,sl):
 
 # Train
 def train(optimizer):
+    method_name = "SourceMethod"
+    global_step = 0
+
+    # Board
+    train_summary_writer = tf.summary.create_file_writer(args.log_path, name=method_name)
+
     best_loss= 0.
     best_auc = 0.
     start_time = time.time()
@@ -72,18 +75,21 @@ def train(optimizer):
 
             if step % args.print_step == 0:
                 test_gauc, auc = eval(model, test_data)
+                current_loss = loss_metric.result() / args.print_step
+
                 print('Epoch %d Global_step %d\tTrain_loss: %.4f\tEval_GAUC: %.4f\tEval_AUC: %.4f' %
-                      (epoch, step, loss_metric.result() / args.print_step, test_gauc, auc))
+                      (epoch, step, current_loss, test_gauc, auc))
+
+                with train_summary_writer.as_default():
+                    tf.summary.scalar(method_name + '/loss', current_loss, step=global_step)
+                    tf.summary.scalar(method_name + '/test_gauc', test_gauc, step=global_step)
+                    global_step += 1
 
                 if best_auc < test_gauc:
-                    best_loss = loss_metric.result() / args.print_step
+                    best_loss = current_loss
                     best_auc = test_gauc
-                    model.save_weights(args.model_path+'cp-%d.ckpt'%epoch)
+                    model.save_weights(args.model_path + method_name + '_best_EPOCH_' + str(epoch) + '.ckpt')
                 loss_metric.reset_states()
-
-        with train_summary_writer.as_default():
-            tf.summary.scalar('loss', best_loss, step=epoch)
-            tf.summary.scalar('test_gauc', best_auc, step=epoch)
 
         loss_metric.reset_states()
         optimizer = tf.keras.optimizers.SGD(learning_rate=0.01, momentum=0.0)

@@ -8,7 +8,8 @@ from config import argparser
 
 args = argparser()
 
-with open(args.dataset_dir+'dataset.pkl', 'rb') as f:
+#  with open(args.dataset_dir+'dataset.pkl', 'rb') as f:
+with open('../datasets/dataset-100.pkl', 'rb') as f:
     train_set = pickle.load(f, encoding='latin1')
     test_set = pickle.load(f, encoding='latin1')
     cate_list = pickle.load(f, encoding='latin1')
