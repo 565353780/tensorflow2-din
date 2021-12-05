@@ -44,6 +44,12 @@ auc_metric = tf.keras.metrics.AUC()
 model = DIN(user_count, item_count, cate_count, cate_list,
              args.user_dim, args.item_dim, args.cate_dim, args.dim_layers)
 
+def get_model_name(save_path, method_name, method_train_episode, loss, auc):
+    save_model_name = save_path + method_name + "_" +
+        str(method_train_episode) + "_best_loss_" +
+        str(loss) + "_gauc_" + str(auc) + ".ckpt"
+    return save_model_name
+
 
 # @tf.function
 def train_one_step(u,i,y,hist_i,sl):
@@ -60,7 +66,11 @@ def train_one_step(u,i,y,hist_i,sl):
 
 # Train
 def train(optimizer):
-    method_list = ["Source", "AFM-Add-to-Output", "AFM-Add-to-Attention-Output", "AFM-With-Candidate"]
+    method_list = [
+        "Source",
+        "AFM-Add-to-Output",
+        "AFM-Add-to-Attention-Output",
+        "AFM-With-Candidate"]
     method_name = method_list[3]
 
     method_train_episode = 0
@@ -78,10 +88,13 @@ def train(optimizer):
     global_step = 0
 
     # Board
-    train_summary_writer = tf.summary.create_file_writer(args.log_path + method_name + "_" + str(method_train_episode))
+    train_summary_writer = tf.summary.create_file_writer(
+        args.log_path + method_name + "_" + str(method_train_episode))
 
     best_loss= 0.
     best_auc = 0.
+    last_save_loss = 0.
+    last_save_auc = 0.
     start_time = time.time()
     for epoch in range(args.epochs):
         for step, (u, i, y, hist_i, sl) in enumerate(train_data, start=1):
@@ -102,8 +115,20 @@ def train(optimizer):
                 if best_auc < test_gauc:
                     best_loss = current_loss
                     best_auc = test_gauc
-                    model.save_weights(args.model_path + method_name +
-                        '_best_EPOCH_' + str(epoch) + '_STEP_' + str(step) + '.ckpt')
+
+                    last_save_model_name = get_model_name(
+                        args.model_path, method_name, method_train_episode,
+                        last_save_loss, last_save_auc)
+                    if os.path.exists(last_save_model_name):
+                        os.remove(last_save_model_name)
+
+                    new_save_model_name = get_model_name(
+                        args.model_path, method_name, method_train_episode,
+                        best_loss, best_auc)
+                    model.save_weights(new_save_model_name)
+                    last_save_loss = best_loss
+                    last_save_auc = best_auc
+
                 loss_metric.reset_states()
 
         loss_metric.reset_states()
