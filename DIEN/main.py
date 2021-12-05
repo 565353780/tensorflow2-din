@@ -60,11 +60,25 @@ def train_one_step(u,i,y,hist_i,sl):
 
 # Train
 def train(optimizer):
-    method_name = "AFM_With_Candidate_Method"
+    method_list = ["Source", "AFM-Add-to-Output", "AFM-Add-to-Attention-Output", "AFM-With-Candidate"]
+    method_name = method_list[3]
+
+    method_train_episode = 0
+    folder_list = os.listdir("./logs/")
+    for folder_name in folder_list:
+        folder_name_split_list = folder_name.split("_")
+        if len(folder_name_split_list) < 2:
+            continue
+        if folder_name_split_list[0] == method_name:
+            method_exist_train_episode = int(folder_name_split_list[1])
+            if method_exist_train_episode > method_train_episode:
+                method_train_episode = method_exist_train_episode
+    method_train_episode += 1
+
     global_step = 0
 
     # Board
-    train_summary_writer = tf.summary.create_file_writer(args.log_path, name=method_name)
+    train_summary_writer = tf.summary.create_file_writer(args.log_path + method_name + "_" + str(method_train_episode))
 
     best_loss= 0.
     best_auc = 0.
@@ -81,8 +95,8 @@ def train(optimizer):
                       (epoch, step, current_loss, test_gauc, auc))
 
                 with train_summary_writer.as_default():
-                    tf.summary.scalar(method_name + '/loss', current_loss, step=global_step)
-                    tf.summary.scalar(method_name + '/test_gauc', test_gauc, step=global_step)
+                    tf.summary.scalar('loss', current_loss, step=global_step)
+                    tf.summary.scalar('test_gauc', test_gauc, step=global_step)
                     global_step += 1
 
                 if best_auc < test_gauc:
