@@ -44,12 +44,12 @@ auc_metric = tf.keras.metrics.AUC()
 model = DIN(user_count, item_count, cate_count, cate_list,
              args.user_dim, args.item_dim, args.cate_dim, args.dim_layers)
 
-def get_model_name(save_path, method_name, method_train_episode, loss, auc):
-    save_model_name = save_path + method_name + "_" +
-        str(method_train_episode) + "_best_loss_" +
-        str(loss) + "_gauc_" + str(auc) + ".ckpt"
+def get_model_name(save_path, method_name, step, loss, auc):
+    save_model_name = save_path + method_name + \
+        "/DIN_best_step_" + str(step) + \
+        "_loss_" + str(float(loss))[:6] + \
+        "_gauc_" + str(float(auc))[:6] + ".ckpt"
     return save_model_name
-
 
 # @tf.function
 def train_one_step(u,i,y,hist_i,sl):
@@ -73,28 +73,40 @@ def train(optimizer):
         "AFM-With-Candidate"]
     method_name = method_list[3]
 
-    method_train_episode = 0
-    folder_list = os.listdir("./logs/")
-    for folder_name in folder_list:
-        folder_name_split_list = folder_name.split("_")
-        if len(folder_name_split_list) < 2:
-            continue
-        if folder_name_split_list[0] == method_name:
-            method_exist_train_episode = int(folder_name_split_list[1])
-            if method_exist_train_episode > method_train_episode:
-                method_train_episode = method_exist_train_episode
-    method_train_episode += 1
-
     global_step = 0
+    last_global_step = 0
+    last_save_loss = 0.
+    last_save_auc = 0.
+
+    if os.path.exists(args.model_path + method_name + "/"):
+        model_list = os.listdir(args.model_path + method_name + "/")
+        for model_name in model_list:
+            if "DIN" == model_name[:3]:
+                model_name_split_list = model_name.split(".ckpt")[0].split("best_")[1].split("_")
+                last_global_step = int(model_name_split_list[1])
+                global_step = last_global_step + 1
+                last_save_loss = float(model_name_split_list[3])
+                last_save_auc = float(model_name_split_list[5])
+
+                last_save_model_name = get_model_name(
+                    args.model_path, method_name, last_global_step, last_save_loss, last_save_auc)
+
+                try:
+                    model.load_weights(last_save_model_name)
+                    print("load model success")
+                except:
+                    global_step = 0
+                    last_global_step = 0
+                    last_save_loss = 0.
+                    last_save_auc = 0.
+                break
 
     # Board
     train_summary_writer = tf.summary.create_file_writer(
-        args.log_path + method_name + "_" + str(method_train_episode))
+        args.log_path + method_name)
 
     best_loss= 0.
     best_auc = 0.
-    last_save_loss = 0.
-    last_save_auc = 0.
     start_time = time.time()
     for epoch in range(args.epochs):
         for step, (u, i, y, hist_i, sl) in enumerate(train_data, start=1):
@@ -117,15 +129,14 @@ def train(optimizer):
                     best_auc = test_gauc
 
                     last_save_model_name = get_model_name(
-                        args.model_path, method_name, method_train_episode,
-                        last_save_loss, last_save_auc)
+                        args.model_path, method_name, last_global_step, last_save_loss, last_save_auc)
                     if os.path.exists(last_save_model_name):
                         os.remove(last_save_model_name)
 
                     new_save_model_name = get_model_name(
-                        args.model_path, method_name, method_train_episode,
-                        best_loss, best_auc)
+                        args.model_path, method_name, global_step, best_loss, best_auc)
                     model.save_weights(new_save_model_name)
+                    last_global_step = global_step
                     last_save_loss = best_loss
                     last_save_auc = best_auc
 
