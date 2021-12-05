@@ -136,7 +136,7 @@ def train(optimizer):
                     if os.path.exists(args.model_path + method_name + "/"):
                         saved_model_name_list = os.listdir(args.model_path + method_name + "/")
                         for save_model_name in saved_model_name_list:
-                            if last_save_model_name in save_model_name:
+                            if "DIN" in save_model_name:
                                 os.remove(args.model_path + method_name + "/" + save_model_name)
 
                     new_save_model_name = get_model_name(global_step, best_loss, best_auc)
