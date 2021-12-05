@@ -134,10 +134,28 @@ class DIN(Base):
 
         return output, logit
 
+    def add_afm_to_attention_output_with_candidate(self, user, item, history, length):
+        '''
+        method 3: merge afm result with hist_attn_emb, add candidate to afm
+        '''
+        user_emb, item_join_emb, item_bias, hist_join_emb = self.get_emb(user, item, history)
+        item_join_emb_updim = np.array(item_join_emb).reshape([item_join_emb.shape[0], 1, item_join_emb.shape[1]])
+        hist_join_emb_concat_candidate = tf.concat([hist_join_emb, item_join_emb_updim], 1) #(32, 1)
+        afm_filter = self.afm(hist_join_emb) #(32, 1)
+        hist_attn_emb = self.hist_at(item_join_emb, hist_join_emb, length) #(32, 128)
+        hist_attn_emb_concat_afm = tf.concat([hist_attn_emb, afm_filter], -1) #(32, 129)
+        hist_attn_emb = self.hist_fc(self.hist_bn(hist_attn_emb_concat_afm)) #(32, 129)
+        join_emb = tf.concat([user_emb, item_join_emb, hist_attn_emb], -1) #(32, 385)
+        output = tf.squeeze(self.fc(join_emb)) + item_bias #(32,)
+        logit = tf.keras.activations.sigmoid(output)
+
+        return output, logit
+
     def call(self, user, item, history, length):
-        return self.source_method(user, item, history, length)
+        #  return self.source_method(user, item, history, length)
         #  return self.add_afm_to_output(user, item, history, length)
         #  return self.add_afm_to_attention_output(user, item, history, length)
+        return self.add_afm_to_attention_output_with_candidate(user, item, history, length)
 
 
 class DIEN(Base):

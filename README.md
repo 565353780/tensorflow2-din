@@ -13,5 +13,10 @@ cd DIEN
 python main.py
 ```
 
+## Visual
+```bash
+tensorboard --logdir ./logs --host 0.0.0.0
+```
+
 ## Enjoy it~
 
