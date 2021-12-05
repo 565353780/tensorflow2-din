@@ -102,7 +102,8 @@ def train(optimizer):
                 if best_auc < test_gauc:
                     best_loss = current_loss
                     best_auc = test_gauc
-                    model.save_weights(args.model_path + method_name + '_best_EPOCH_' + str(epoch) + '.ckpt')
+                    model.save_weights(args.model_path + method_name +
+                        '_best_EPOCH_' + str(epoch) + '_STEP_' + str(step) + '.ckpt')
                 loss_metric.reset_states()
 
         loss_metric.reset_states()
