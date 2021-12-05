@@ -140,7 +140,7 @@ class DIN(Base):
         '''
         user_emb, item_join_emb, item_bias, hist_join_emb = self.get_emb(user, item, history)
         item_join_emb_updim = np.array(item_join_emb).reshape([item_join_emb.shape[0], 1, item_join_emb.shape[1]])
-        hist_join_emb_concat_candidate = tf.concat([hist_join_emb, item_join_emb_updim], 1) #(32, 1)
+        hist_join_emb_concat_candidate = tf.concat([item_join_emb_updim, hist_join_emb], 1) #(32, 1)
         afm_filter = self.afm(hist_join_emb) #(32, 1)
         hist_attn_emb = self.hist_at(item_join_emb, hist_join_emb, length) #(32, 128)
         hist_attn_emb_concat_afm = tf.concat([hist_attn_emb, afm_filter], -1) #(32, 129)
