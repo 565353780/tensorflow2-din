@@ -60,7 +60,7 @@ def train_one_step(u,i,y,hist_i,sl):
 
 # Train
 def train(optimizer):
-    method_name = "SourceMethod"
+    method_name = "AFM_With_Candidate_Method"
     global_step = 0
 
     # Board
