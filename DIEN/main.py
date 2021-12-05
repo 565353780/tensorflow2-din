@@ -44,9 +44,8 @@ auc_metric = tf.keras.metrics.AUC()
 model = DIN(user_count, item_count, cate_count, cate_list,
              args.user_dim, args.item_dim, args.cate_dim, args.dim_layers)
 
-def get_model_name(save_path, method_name, step, loss, auc):
-    save_model_name = save_path + method_name + \
-        "/DIN_best_step_" + str(step) + \
+def get_model_name(step, loss, auc):
+    save_model_name = "/DIN_best_step_" + str(step) + \
         "_loss_" + str(float(loss))[:6] + \
         "_gauc_" + str(float(auc))[:6] + ".ckpt"
     return save_model_name
@@ -74,6 +73,8 @@ def train(optimizer):
     method_name = method_list[3]
 
     global_step = 0
+    best_loss= 0.
+    best_auc = 0.
     last_global_step = 0
     last_save_loss = 0.
     last_save_auc = 0.
@@ -86,27 +87,30 @@ def train(optimizer):
                 last_global_step = int(model_name_split_list[1])
                 global_step = last_global_step + 1
                 last_save_loss = float(model_name_split_list[3])
+                best_loss = last_save_loss
                 last_save_auc = float(model_name_split_list[5])
+                best_auc = last_save_auc
 
-                last_save_model_name = get_model_name(
-                    args.model_path, method_name, last_global_step, last_save_loss, last_save_auc)
+                last_save_model_name = get_model_name(last_global_step, last_save_loss, last_save_auc)
 
                 try:
-                    model.load_weights(last_save_model_name)
+                    model.load_weights(args.model_path + method_name + "/" + last_save_model_name)
                     print("load model success")
                 except:
+                    print("load model failed")
                     global_step = 0
+                    best_loss = 0.
+                    best_auc = 0.
                     last_global_step = 0
                     last_save_loss = 0.
                     last_save_auc = 0.
+                    exit()
                 break
 
     # Board
     train_summary_writer = tf.summary.create_file_writer(
         args.log_path + method_name)
 
-    best_loss= 0.
-    best_auc = 0.
     start_time = time.time()
     for epoch in range(args.epochs):
         for step, (u, i, y, hist_i, sl) in enumerate(train_data, start=1):
@@ -128,14 +132,15 @@ def train(optimizer):
                     best_loss = current_loss
                     best_auc = test_gauc
 
-                    last_save_model_name = get_model_name(
-                        args.model_path, method_name, last_global_step, last_save_loss, last_save_auc)
-                    if os.path.exists(last_save_model_name):
-                        os.remove(last_save_model_name)
+                    last_save_model_name = get_model_name(last_global_step, last_save_loss, last_save_auc)
+                    if os.path.exists(args.model_path + method_name + "/"):
+                        saved_model_name_list = os.listdir(args.model_path + method_name + "/")
+                        for save_model_name in saved_model_name_list:
+                            if last_save_model_name in save_model_name:
+                                os.remove(args.model_path + method_name + "/" + save_model_name)
 
-                    new_save_model_name = get_model_name(
-                        args.model_path, method_name, global_step, best_loss, best_auc)
-                    model.save_weights(new_save_model_name)
+                    new_save_model_name = get_model_name(global_step, best_loss, best_auc)
+                    model.save_weights(args.model_path + method_name + "/" + new_save_model_name)
                     last_global_step = global_step
                     last_save_loss = best_loss
                     last_save_auc = best_auc
