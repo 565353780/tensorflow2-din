@@ -122,7 +122,7 @@ class DINTrainer:
                 return True
             except:
                 print("load trained model failed, will start from step 0")
-                print("this might be a tf2 keras' official bug")
+                print("this might be a tf2 keras official bug")
                 self.global_step = 0
                 self.best_loss = 0.
                 self.best_auc = 0.
