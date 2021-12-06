@@ -62,6 +62,10 @@ class DINTrainer:
         print("GPU Available: ", tf.test.is_gpu_available())
         return True
 
+    def print_method_list(self):
+        print(self.method_list)
+        return True
+
     def set_method(self, method_idx):
         self.method_name = self.method_list[method_idx]
 
