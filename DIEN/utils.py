@@ -1,6 +1,8 @@
 import numpy as np
 import tensorflow as tf
 
+from tqdm import tqdm
+
 def calc_auc(raw_arr):
     """Summary
     Args:
@@ -40,6 +42,7 @@ def auc_arr(score_p, score_n):
 def eval(model, test_data):
     auc_sum = 0.0
     score_arr = []
+    pbar = tqdm(total=test_data.epoch_size, desc="EVAL")
     for u, i, j, hist_i, sl in test_data:
         p_out, p_logit = model(u,i,hist_i,sl)
         n_out, n_logit = model(u,j,hist_i,sl)
@@ -47,8 +50,14 @@ def eval(model, test_data):
 
         score_arr += auc_arr(p_logit, n_logit)
         auc_sum += mf_auc
+
+        pbar.update(1)
+
     test_gauc = auc_sum / len(test_data)
     auc = calc_auc(score_arr)
+
+    pbar.close()
+
     return test_gauc, auc
 
 def sequence_mask(lengths, maxlen=None, dtype=tf.bool):

@@ -16,7 +16,7 @@ from data import get_dataloader
 from model import Base, DIN, DIEN
 from utils import eval
 
-import tqdm
+from tqdm import tqdm
 
 class DINTrainer:
     def __init__(self):
@@ -135,7 +135,6 @@ class DINTrainer:
         if os.path.exists(self.args.model_path + self.method_name + "/"):
             saved_model_name_list = os.listdir(self.args.model_path + self.method_name + "/")
             for save_model_name in saved_model_name_list:
-                print(last_save_model_name, save_model_name)
                 if last_save_model_name in save_model_name:
                     os.remove(self.args.model_path + self.method_name + "/" + save_model_name)
 
@@ -180,12 +179,18 @@ class DINTrainer:
     def train(self):
         start_time = time.time()
         for epoch in range(self.args.epochs):
-            for step, (u, i, y, hist_i, sl) in enumerate(tqdm(self.train_data), start=1):
+
+            pbar = tqdm(total=self.args.print_step, desc="TRAIN")
+
+            for step, (u, i, y, hist_i, sl) in enumerate(self.train_data, start=1):
                 if not self.train_one_step(u, i, y, hist_i, sl):
-                    print("train on step failed")
                     return False
 
+                pbar.update(1)
+
                 if step % self.args.print_step == 0:
+                    pbar.close()
+
                     test_gauc, auc = eval(self.model, self.test_data)
                     current_loss = self.loss_metric.result() / self.args.print_step
 
@@ -204,6 +209,8 @@ class DINTrainer:
                     self.save_best_model()
 
                     self.loss_metric.reset_states()
+
+                    pbar = tqdm(total=self.args.print_step, desc="TRAIN")
 
             self.loss_metric.reset_states()
             self.optimizer = tf.keras.optimizers.SGD(learning_rate=0.01, momentum=0.0)
