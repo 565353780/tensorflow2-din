@@ -101,31 +101,35 @@ class DINTrainer:
             for model_name in model_list:
                 if "DIN" == model_name[:3]:
                     model_name_split_list = model_name.split(".ckpt")[0].split("best_")[1].split("_")
-                    self.last_global_step = int(model_name_split_list[1])
-                    self.global_step = self.last_global_step + 1
-                    self.last_save_loss = float(model_name_split_list[3])
-                    self.best_loss = self.last_save_loss
-                    self.last_save_auc = float(model_name_split_list[5])
-                    self.best_auc = self.last_save_auc
+                    current_auc = float(model_name_split_list[5])
+                    if current_auc > self.last_save_auc:
+                        self.last_global_step = int(model_name_split_list[1])
+                        self.global_step = self.last_global_step + 1
+                        self.last_save_loss = float(model_name_split_list[3])
+                        self.best_loss = self.last_save_loss
+                        self.last_save_auc = float(model_name_split_list[5])
+                        self.best_auc = self.last_save_auc
 
-                    last_save_model_name = self.get_model_name(
-                        self.last_global_step, self.last_save_loss, self.last_save_auc)
+            last_save_model_name = self.get_model_name(
+                self.last_global_step, self.last_save_loss, self.last_save_auc)
 
-                    try:
-                        self.model.load_weights(
-                            self.args.model_path + self.method_name + "/" + last_save_model_name)
-                        print("load trained model success")
-                        return True
-                    except:
-                        print("load trained model failed, will start from step 0")
-                        print("this might be a tf2 keras' official bug")
-                        self.global_step = 0
-                        self.best_loss = 0.
-                        self.best_auc = 0.
-                        self.last_global_step = 0
-                        self.last_save_loss = 0.
-                        self.last_save_auc = 0.
-                        return False
+            try:
+                print("start load weights from :")
+                print(self.args.model_path + self.method_name + "/" + last_save_model_name)
+                self.model.load_weights(
+                    self.args.model_path + self.method_name + "/" + last_save_model_name)
+                print("load trained model success")
+                return True
+            except:
+                print("load trained model failed, will start from step 0")
+                print("this might be a tf2 keras' official bug")
+                self.global_step = 0
+                self.best_loss = 0.
+                self.best_auc = 0.
+                self.last_global_step = 0
+                self.last_save_loss = 0.
+                self.last_save_auc = 0.
+                return False
         print("trained model not found, now will start trainning from step 0")
         return True
 
