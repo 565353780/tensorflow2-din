@@ -4,13 +4,13 @@
 ```bash
 conda create -n tf python=3.7
 conda activate tf
-pip install tensorflow-gpu
+pip install tensorflow-gpu tqdm
 ```
 
 ## Run
 ```bash
 cd DIEN
-python main.py
+python train.py
 ```
 
 ## Visual
