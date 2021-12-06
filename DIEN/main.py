@@ -11,149 +11,209 @@ import tensorflow as tf
 # tf.config.experimental.set_virtual_device_configuration(gpus[0],
 #                                                         [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5120)])
 
-#  from DIEN.config import argparser
-#  from DIEN.data import get_dataloader
-#  from DIEN.model import Base, DIN, DIEN
-#  from DIEN.utils import eval
-
 from config import argparser
 from data import get_dataloader
 from model import Base, DIN, DIEN
 from utils import eval
 
-# Config
-# print(tf.__version__)
-# print("GPU Available: ", tf.test.is_gpu_available())
+import tqdm
 
-args = argparser()
+class DINTrainer:
+    def __init__(self):
+        self.args = argparser()
 
-# Data Load
-train_data, test_data, \
-user_count, item_count, cate_count, \
-cate_list = get_dataloader(args.train_batch_size, args.test_batch_size)
+        self.train_data = None
+        self.test_data = None
+        self.user_count = None
+        self.item_count = None
+        self.cate_count = None
+        self.cate_list = None
 
-# Loss, Optim
-optimizer = tf.keras.optimizers.SGD(learning_rate=args.lr, momentum=0.0)
-loss_metric = tf.keras.metrics.Sum()
-auc_metric = tf.keras.metrics.AUC()
+        self.optimizer = None
+        self.loss_metric = None
+        self.auc_metric = None
 
+        self.model = None
 
-#192403 63001 801 tf.Tensor([738 157 571 ...  63 674 351], shape=(63001,), dtype=int64)
-#print(user_count,item_count,cate_count,cate_list,"111")
-# Model
-model = DIN(user_count, item_count, cate_count, cate_list,
-             args.user_dim, args.item_dim, args.cate_dim, args.dim_layers)
+        self.method_list = [
+            "Source",
+            "AFM-Add-to-Output",
+            "AFM-Add-to-Attention-Output",
+            "AFM-With-Candidate"]
+        self.method_name = None
 
-def get_model_name(step, loss, auc):
-    save_model_name = "/DIN_best_step_" + str(step) + \
-        "_loss_" + str(float(loss))[:6] + \
-        "_gauc_" + str(float(auc))[:6] + ".ckpt"
-    return save_model_name
+        self.global_step = None
+        self.best_loss= None
+        self.best_auc = None
+        self.last_global_step = None
+        self.last_save_loss = None
+        self.last_save_auc = None
 
-# @tf.function
-def train_one_step(u,i,y,hist_i,sl):
-    with tf.GradientTape() as tape:
-        output,_ = model(u,i,hist_i,sl)
-        loss = tf.reduce_mean(
-                tf.nn.sigmoid_cross_entropy_with_logits(logits=output,
-                                                        labels=tf.cast(y, dtype=tf.float32)))
-    gradient = tape.gradient(loss, model.trainable_variables)
-    clip_gradient, _ = tf.clip_by_global_norm(gradient, 5.0)
-    optimizer.apply_gradients(zip(clip_gradient, model.trainable_variables))
+        self.train_summary_writer = None
+        return
 
-    loss_metric(loss)
+    def print_tf_info(self):
+        print(tf.__version__)
+        print("GPU Available: ", tf.test.is_gpu_available())
+        return True
 
-# Train
-def train(optimizer):
-    method_list = [
-        "Source",
-        "AFM-Add-to-Output",
-        "AFM-Add-to-Attention-Output",
-        "AFM-With-Candidate"]
-    method_name = method_list[3]
+    def set_method(self, method_idx):
+        self.method_name = self.method_list[method_idx]
 
-    global_step = 0
-    best_loss= 0.
-    best_auc = 0.
-    last_global_step = 0
-    last_save_loss = 0.
-    last_save_auc = 0.
+        self.train_summary_writer = tf.summary.create_file_writer(
+            self.args.log_path + self.method_name)
+        return True
 
-    if os.path.exists(args.model_path + method_name + "/"):
-        model_list = os.listdir(args.model_path + method_name + "/")
-        for model_name in model_list:
-            if "DIN" == model_name[:3]:
-                model_name_split_list = model_name.split(".ckpt")[0].split("best_")[1].split("_")
-                last_global_step = int(model_name_split_list[1])
-                global_step = last_global_step + 1
-                last_save_loss = float(model_name_split_list[3])
-                best_loss = last_save_loss
-                last_save_auc = float(model_name_split_list[5])
-                best_auc = last_save_auc
+    def get_model_name(self, step, loss, auc):
+        save_model_name = "DIN_best_step_" + str(step) + \
+            "_loss_" + str(float(loss))[:6] + \
+            "_gauc_" + str(float(auc))[:6] + ".ckpt"
+        return save_model_name
 
-                last_save_model_name = get_model_name(last_global_step, last_save_loss, last_save_auc)
+    def load_dataset(self):
+        self.train_data, self.test_data, self.user_count, self.item_count, self.cate_count, self.cate_list = \
+            get_dataloader(self.args.train_batch_size, self.args.test_batch_size)
+        return True
 
-                try:
-                    model.load_weights(args.model_path + method_name + "/" + last_save_model_name)
-                    print("load model success")
-                except:
-                    print("load model failed")
-                    global_step = 0
-                    best_loss = 0.
-                    best_auc = 0.
-                    last_global_step = 0
-                    last_save_loss = 0.
-                    last_save_auc = 0.
-                    exit()
-                break
+    def load_train_objects(self):
+        self.optimizer = tf.keras.optimizers.SGD(learning_rate=self.args.lr, momentum=0.0)
+        self.loss_metric = tf.keras.metrics.Sum()
+        self.auc_metric = tf.keras.metrics.AUC()
+        return True
 
-    # Board
-    train_summary_writer = tf.summary.create_file_writer(
-        args.log_path + method_name)
+    def load_model(self):
+        #192403 63001 801 tf.Tensor([738 157 571 ...  63 674 351], shape=(63001,), dtype=int64)
+        #print(user_count,item_count,cate_count,cate_list,"111")
+        self.model = DIN(self.user_count, self.item_count, self.cate_count, self.cate_list,
+                    self.args.user_dim, self.args.item_dim, self.args.cate_dim, self.args.dim_layers)
+        return True
 
-    start_time = time.time()
-    for epoch in range(args.epochs):
-        for step, (u, i, y, hist_i, sl) in enumerate(train_data, start=1):
-            train_one_step(u, i, y, hist_i, sl)
+    def load_trained_model_param(self):
+        self.global_step = 0
+        self.best_loss= 0.
+        self.best_auc = 0.
+        self.last_global_step = 0
+        self.last_save_loss = 0.
+        self.last_save_auc = 0.
 
-            if step % args.print_step == 0:
-                test_gauc, auc = eval(model, test_data)
-                current_loss = loss_metric.result() / args.print_step
+        if os.path.exists(self.args.model_path + self.method_name + "/"):
+            model_list = os.listdir(self.args.model_path + self.method_name + "/")
+            for model_name in model_list:
+                if "DIN" == model_name[:3]:
+                    model_name_split_list = model_name.split(".ckpt")[0].split("best_")[1].split("_")
+                    self.last_global_step = int(model_name_split_list[1])
+                    self.global_step = self.last_global_step + 1
+                    self.last_save_loss = float(model_name_split_list[3])
+                    self.best_loss = self.last_save_loss
+                    self.last_save_auc = float(model_name_split_list[5])
+                    self.best_auc = self.last_save_auc
 
-                print('Epoch %d Global_step %d\tTrain_loss: %.4f\tEval_GAUC: %.4f\tEval_AUC: %.4f' %
-                      (epoch, step, current_loss, test_gauc, auc))
+                    last_save_model_name = self.get_model_name(
+                        self.last_global_step, self.last_save_loss, self.last_save_auc)
 
-                with train_summary_writer.as_default():
-                    tf.summary.scalar('loss', current_loss, step=global_step)
-                    tf.summary.scalar('test_gauc', test_gauc, step=global_step)
-                    global_step += 1
+                    try:
+                        self.model.load_weights(
+                            self.args.model_path + self.method_name + "/" + last_save_model_name)
+                        print("load trained model success")
+                        return True
+                    except:
+                        print("load trained model failed, will start from step 0")
+                        print("this might be a tf2 keras' official bug")
+                        self.global_step = 0
+                        self.best_loss = 0.
+                        self.best_auc = 0.
+                        self.last_global_step = 0
+                        self.last_save_loss = 0.
+                        self.last_save_auc = 0.
+                        return False
+        print("trained model not found, now will start trainning from step 0")
+        return True
 
-                if best_auc < test_gauc:
-                    best_loss = current_loss
-                    best_auc = test_gauc
+    def save_best_model(self):
+        last_save_model_name = \
+            self.get_model_name(self.last_global_step, self.last_save_loss, self.last_save_auc)
+        if os.path.exists(self.args.model_path + self.method_name + "/"):
+            saved_model_name_list = os.listdir(self.args.model_path + self.method_name + "/")
+            for save_model_name in saved_model_name_list:
+                print(last_save_model_name, save_model_name)
+                if last_save_model_name in save_model_name:
+                    os.remove(self.args.model_path + self.method_name + "/" + save_model_name)
 
-                    last_save_model_name = get_model_name(last_global_step, last_save_loss, last_save_auc)
-                    if os.path.exists(args.model_path + method_name + "/"):
-                        saved_model_name_list = os.listdir(args.model_path + method_name + "/")
-                        for save_model_name in saved_model_name_list:
-                            if "DIN" in save_model_name:
-                                os.remove(args.model_path + method_name + "/" + save_model_name)
+        new_save_model_name = self.get_model_name(self.global_step, self.best_loss, self.best_auc)
+        self.model.save_weights(self.args.model_path + self.method_name + "/" + new_save_model_name)
+        self.last_global_step = self.global_step
+        self.last_save_loss = self.best_loss
+        self.last_save_auc = self.best_auc
+        return True
 
-                    new_save_model_name = get_model_name(global_step, best_loss, best_auc)
-                    model.save_weights(args.model_path + method_name + "/" + new_save_model_name)
-                    last_global_step = global_step
-                    last_save_loss = best_loss
-                    last_save_auc = best_auc
+    def init_env(self, method_idx):
+        if not self.set_method(method_idx):
+            return False
 
-                loss_metric.reset_states()
+        if not self.load_dataset():
+            return False
 
-        loss_metric.reset_states()
-        optimizer = tf.keras.optimizers.SGD(learning_rate=0.01, momentum=0.0)
+        if not self.load_train_objects():
+            return False
 
-        print('Epoch %d DONE\tCost time: %.2f' % (epoch, time.time()-start_time))
-    print('Best test_gauc: ', best_auc)
+        if not self.load_model():
+            return False
 
+        if not self.load_trained_model_param():
+            return False
 
-# Main
+        return True
+
+    # @tf.function
+    def train_one_step(self, u, i, y, hist_i, sl):
+        with tf.GradientTape() as tape:
+            output,_ = self.model(u, i, hist_i, sl)
+            loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
+                logits=output, labels=tf.cast(y, dtype=tf.float32)))
+        gradient = tape.gradient(loss, self.model.trainable_variables)
+        clip_gradient, _ = tf.clip_by_global_norm(gradient, 5.0)
+        self.optimizer.apply_gradients(zip(clip_gradient, self.model.trainable_variables))
+
+        self.loss_metric(loss)
+        return True
+
+    def train(self):
+        start_time = time.time()
+        for epoch in range(self.args.epochs):
+            for step, (u, i, y, hist_i, sl) in enumerate(tqdm(self.train_data), start=1):
+                if not self.train_one_step(u, i, y, hist_i, sl):
+                    print("train on step failed")
+                    return False
+
+                if step % self.args.print_step == 0:
+                    test_gauc, auc = eval(self.model, self.test_data)
+                    current_loss = self.loss_metric.result() / self.args.print_step
+
+                    print('Epoch %d Global_step %d\tTrain_loss: %.4f\tEval_GAUC: %.4f\tEval_AUC: %.4f' %
+                          (epoch, step, current_loss, test_gauc, auc))
+
+                    with self.train_summary_writer.as_default():
+                        tf.summary.scalar('loss', current_loss, step=self.global_step)
+                        tf.summary.scalar('test_gauc', test_gauc, step=self.global_step)
+                        self.global_step += 1
+
+                    if self.best_auc < test_gauc:
+                        self.best_loss = current_loss
+                        self.best_auc = test_gauc
+
+                    self.save_best_model()
+
+                    self.loss_metric.reset_states()
+
+            self.loss_metric.reset_states()
+            self.optimizer = tf.keras.optimizers.SGD(learning_rate=0.01, momentum=0.0)
+
+            print('Epoch %d DONE\tCost time: %.2f' % (epoch, time.time()-start_time))
+        print('Best test_gauc: ', self.best_auc)
+        return True
+
 if __name__ == '__main__':
-    train(optimizer)
+    din_trainer = DINTrainer()
+    din_trainer.init_env(method_idx=3)
+    din_trainer.train()
+
