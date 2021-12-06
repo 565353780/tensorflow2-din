@@ -45,6 +45,7 @@ class DINTrainer:
             "AFM-Add-to-Output",
             "AFM-Add-to-Attention-Output",
             "AFM-With-Candidate"]
+        self.method_idx = None
         self.method_name = None
 
         self.global_step = None
@@ -67,7 +68,8 @@ class DINTrainer:
         return True
 
     def set_method(self, method_idx):
-        self.method_name = self.method_list[method_idx]
+        self.method_idx = method_idx
+        self.method_name = self.method_list[self.method_idx]
 
         self.train_summary_writer = tf.summary.create_file_writer(
             self.args.log_path + self.method_name)
@@ -95,6 +97,8 @@ class DINTrainer:
         #print(user_count,item_count,cate_count,cate_list,"111")
         self.model = DIN(self.user_count, self.item_count, self.cate_count, self.cate_list,
                     self.args.user_dim, self.args.item_dim, self.args.cate_dim, self.args.dim_layers)
+
+        self.model.set_method(self.method_idx)
         return True
 
     def load_trained_model_param(self):
@@ -131,7 +135,6 @@ class DINTrainer:
                 return True
             except:
                 print("load trained model failed, will start from step 0")
-                print("this might be a tf2 keras official bug")
                 self.global_step = 0
                 self.best_loss = 0.
                 self.best_auc = 0.
@@ -171,8 +174,9 @@ class DINTrainer:
         if not self.load_model():
             return False
 
-        if not self.load_trained_model_param():
-            return False
+        #  if not self.load_trained_model_param():
+            #  print("load weights failed, this might be a tf2 keras official bug")
+            #  return False
 
         return True
 
