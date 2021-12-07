@@ -56,6 +56,11 @@ class DINTrainer:
         self.last_save_auc = None
 
         self.train_summary_writer = None
+
+        self.source_lr = None
+        self.decay_rate = None
+        self.decay_steps = None
+        self.decayed_lr = None
         return
 
     def print_tf_info(self):
@@ -87,9 +92,24 @@ class DINTrainer:
         return True
 
     def load_train_objects(self):
-        self.optimizer = tf.keras.optimizers.SGD(learning_rate=self.args.lr, momentum=0.0)
+        self.source_lr = self.args.lr
+        self.decayed_lr = self.source_lr
+        self.optimizer = tf.keras.optimizers.SGD(learning_rate=self.decayed_lr, momentum=0.0)
         self.loss_metric = tf.keras.metrics.Sum()
         self.auc_metric = tf.keras.metrics.AUC()
+        return True
+
+    def set_decayed_lr_param(self, decay_rate, decay_steps):
+        if decay_rate is None:
+            self.decay_rate = 0.999
+        else:
+            self.decay_rate = decay_rate
+
+        if decay_steps is None:
+            self.decay_steps = self.train_data.epoch_size
+        else:
+            self.decay_steps = decay_steps
+
         return True
 
     def load_model(self):
@@ -126,22 +146,24 @@ class DINTrainer:
             last_save_model_name = self.get_model_name(
                 self.last_global_step, self.last_save_loss, self.last_save_auc)
 
-            try:
-                print("start load weights from :")
-                print(self.args.model_path + self.method_name + "/" + last_save_model_name)
-                self.model.load_weights(
-                    self.args.model_path + self.method_name + "/" + last_save_model_name)
-                print("load trained model success")
-                return True
-            except:
-                print("load trained model failed, will start from step 0")
-                self.global_step = 0
-                self.best_loss = 0.
-                self.best_auc = 0.
-                self.last_global_step = 0
-                self.last_save_loss = 0.
-                self.last_save_auc = 0.
-                return False
+            if self.last_save_auc > 0:
+                try:
+                    print("start load weights from :")
+                    print(self.args.model_path + self.method_name + "/" + last_save_model_name)
+                    self.model.load_weights(
+                        self.args.model_path + self.method_name + "/" + last_save_model_name)
+                    self.update_decay_lr()
+                    return True
+                except:
+                    print("load weights failed, start trainning from step 0")
+                    self.global_step = 0
+                    self.best_loss = 0.
+                    self.best_auc = 0.
+                    self.last_global_step = 0
+                    self.last_save_loss = 0.
+                    self.last_save_auc = 0.
+                    return False
+
         print("trained model not found, now will start trainning from step 0")
         return True
 
@@ -161,7 +183,23 @@ class DINTrainer:
         self.last_save_auc = self.best_auc
         return True
 
-    def init_env(self, method_idx):
+    def update_decay_lr(self):
+        min_lr = 0.0001
+        if self.decayed_lr == min_lr:
+            return True
+
+        self.decayed_lr = self.source_lr * pow(self.decay_rate, (self.global_step / self.decay_steps))
+
+        if self.decayed_lr < min_lr:
+            self.decayed_lr = min_lr
+            return True
+
+        self.optimizer = tf.keras.optimizers.SGD(learning_rate=self.decayed_lr, momentum=0.0)
+
+        print("trainning with decayed_lr =", self.decayed_lr)
+        return True
+
+    def init_env(self, method_idx, decay_rate=None, decay_steps=None):
         if not self.set_method(method_idx):
             return False
 
@@ -171,12 +209,15 @@ class DINTrainer:
         if not self.load_train_objects():
             return False
 
+        if not self.set_decayed_lr_param(decay_rate, decay_steps):
+            return False
+
         if not self.load_model():
             return False
 
-        #  if not self.load_trained_model_param():
-            #  print("load weights failed, this might be a tf2 keras official bug")
-            #  return False
+        if not self.load_trained_model_param():
+            print("NOTE: this might be a tf2 keras official bug")
+            return False
 
         return True
 
@@ -217,7 +258,7 @@ class DINTrainer:
                     with self.train_summary_writer.as_default():
                         tf.summary.scalar('loss', current_loss, step=self.global_step)
                         tf.summary.scalar('test_gauc', test_gauc, step=self.global_step)
-                        self.global_step += 1
+                        self.global_step += self.args.print_step
 
                     if self.best_auc < test_gauc:
                         self.best_loss = current_loss
@@ -230,7 +271,10 @@ class DINTrainer:
                     pbar = tqdm(total=self.args.print_step, desc="TRAIN")
 
             self.loss_metric.reset_states()
-            self.optimizer = tf.keras.optimizers.SGD(learning_rate=0.01, momentum=0.0)
+
+            self.update_decay_lr()
+
+            self.optimizer = tf.keras.optimizers.SGD(learning_rate=self.decayed_lr, momentum=0.0)
 
             print('Epoch %d DONE\tCost time: %.2f' % (epoch, time.time()-start_time))
         print('Best test_gauc: ', self.best_auc)

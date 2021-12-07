@@ -4,9 +4,9 @@
 from DINTrainer import DINTrainer
 
 '''
-# method:
+method:
     0: "Source"
-    1: "AFM-Add-to-Output"
+    1: "AFM-Add-to-Output" # make output wrong size (32, 32)
     2: "AFM-Add-to-Attention-Output"
     3: "AFM-With-Candidate"
 '''

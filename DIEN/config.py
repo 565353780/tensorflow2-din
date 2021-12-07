@@ -6,7 +6,7 @@ def argparser():
     parser.add_argument('--lr', default=0.1, help='learning rate', type=float)
     parser.add_argument('--train_batch_size', default=32, help='batch size', type=int)
     parser.add_argument('--test_batch_size', default=512, help='batch size', type=int)
-    parser.add_argument('--epochs', default=10, help='number of epochs', type=int)
+    parser.add_argument('--epochs', default=10000, help='number of epochs', type=int)
     parser.add_argument('--print_step', default=10000, help='step size for print log', type=int)
 
     parser.add_argument('--dataset_dir', default='./data/private/Ad/amazon/np_prepro/', help='dataset path')
