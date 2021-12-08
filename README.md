@@ -62,14 +62,6 @@ conda activate tf
 pip install tensorflow-gpu tqdm pandas
 ```
 
-## Create your own datasets
-```bash
-cd DIEN
-# change Settings in build_dataset.py if needed
-python build_dataset.py
-cd ..
-```
-
 ## Run
 ```bash
 cd DIEN
