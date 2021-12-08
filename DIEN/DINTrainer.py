@@ -95,9 +95,6 @@ class DINTrainer:
     def set_method(self, method_idx):
         self.method_idx = method_idx
         self.method_name = self.method_list[self.method_idx]
-
-        self.train_summary_writer = tf.summary.create_file_writer(
-            self.log_path + self.method_name)
         return True
 
     def get_model_name(self, step, loss, auc):
@@ -137,6 +134,16 @@ class DINTrainer:
         else:
             self.decay_steps = decay_steps
 
+        return True
+
+    def set_summary_writer(self):
+        log_name = self.method_name
+        log_name += "_lr_" + str(self.lr)
+        log_name += "_decay_rate_" + str(self.decay_rate)
+        log_name += "_decay_steps_" + str(self.decay_steps)
+
+        self.train_summary_writer = tf.summary.create_file_writer(
+            self.log_path + log_name)
         return True
 
     def load_model(self):
@@ -253,6 +260,11 @@ class DINTrainer:
 
         print("start set decayed lr param...")
         if not self.set_decayed_lr_param(decay_rate, decay_steps):
+            return False
+        print("SUCCESS!")
+
+        print("start set summary writer...")
+        if not self.set_summary_writer():
             return False
         print("SUCCESS!")
 
