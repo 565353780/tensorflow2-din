@@ -30,7 +30,7 @@ class DINTrainer:
         self.test_batch_size = 512 # batch size
         self.epochs = 10000 # number of epochs
         self.print_step = 10000 # step size for print log
-        self.dataset_dir = "../datasets/private/Ad/amazon/np_prepro/" # dataset path
+        self.dataset_dir = "../datasets/raw_data/" # dataset path
         self.model_path = "./models/" # model load path
         self.log_path = "./logs/" # log path for tensorboard
         self.is_reuse = False

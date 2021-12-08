@@ -13,6 +13,11 @@ cd din-tf2
 mklink /D <path-to-your-datasets-folder> ./datasets
 # linux
 ln -s <path-to-your-datasets-folder> ./datasets
+
+cd datasets
+# change Settings in build_dataset.py if needed
+python build_dataset.py
+cd..
 ```
 
 ### NOTE
@@ -28,8 +33,8 @@ din-tf2/
 |
 |---datasets/
 |   |---Criteo/
-|   |---private/
 |   |---raw_data/
+|   |---build_dataset.py
 |   |---dataset-100.pkl
 |   |---dataset.pkl
 |   |---...
