@@ -2,30 +2,45 @@
 # -*- coding: utf-8 -*-
 
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-'''0 = all messages are logged (default behavior)
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
+'''
+0 = all messages are logged (default behavior)
 1 = INFO messages are not printed
 2 = INFO and WARNING messages are not printed
-3 = INFO, WARNING, and ERROR messages are not printed'''
+3 = INFO, WARNING, and ERROR messages are not printed
+'''
 
-import time
+import pickle
 import tensorflow as tf
+from tqdm import tqdm
 
 # gpus = tf.config.experimental.list_physical_devices(device_type='GPU')
 # tf.config.experimental.set_virtual_device_configuration(gpus[0],
 #                                                         [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5120)])
 
-from config import argparser
-from data import get_dataloader
+from data import DataLoader, DataLoaderTest
 from model import Base, DIN, DIEN
 from utils import eval
 
-from tqdm import tqdm
-
 class DINTrainer:
     def __init__(self):
-        self.args = argparser()
+        self.lr=0.1
+        self.train_batch_size=32
+        self.test_batch_size=512
+        self.epochs=10000
+        self.print_step=10000
+        self.model_path="./models/"
+        self.log_path="./logs/"
+        self.is_reuse=False
+        self.multi_gpu=False
+        self.user_count=192403
+        self.item_count=63001
+        self.cate_count=801
+        self.user_dim=128
+        self.item_dim=64
+        self.cate_dim=64
+        self.dim_layers=[80, 40, 1]
 
         self.train_data = None
         self.test_data = None
@@ -77,7 +92,7 @@ class DINTrainer:
         self.method_name = self.method_list[self.method_idx]
 
         self.train_summary_writer = tf.summary.create_file_writer(
-            self.args.log_path + self.method_name)
+            self.log_path + self.method_name)
         return True
 
     def get_model_name(self, step, loss, auc):
@@ -86,13 +101,20 @@ class DINTrainer:
             "_gauc_" + str(float(auc))[:6] + ".ckpt"
         return save_model_name
 
-    def load_dataset(self):
-        self.train_data, self.test_data, self.user_count, self.item_count, self.cate_count, self.cate_list = \
-            get_dataloader(self.args.train_batch_size, self.args.test_batch_size)
+    def load_dataset(self, dataset_path):
+        with open(dataset_path, 'rb') as f:
+            train_set = pickle.load(f, encoding='latin1')
+            test_set = pickle.load(f, encoding='latin1')
+            cate_list = pickle.load(f, encoding='latin1')
+            self.cate_list = tf.convert_to_tensor(cate_list, dtype=tf.int64)
+            self.user_count, self.item_count, self.cate_count = pickle.load(f)
+
+        self.train_data = DataLoader(self.train_batch_size, train_set)
+        self.test_data = DataLoaderTest(self.test_batch_size, test_set)
         return True
 
     def load_train_objects(self):
-        self.source_lr = self.args.lr
+        self.source_lr = self.lr
         self.decayed_lr = self.source_lr
         self.optimizer = tf.keras.optimizers.SGD(learning_rate=self.decayed_lr, momentum=0.0)
         self.loss_metric = tf.keras.metrics.Sum()
@@ -116,7 +138,7 @@ class DINTrainer:
         #192403 63001 801 tf.Tensor([738 157 571 ...  63 674 351], shape=(63001,), dtype=int64)
         #print(user_count,item_count,cate_count,cate_list,"111")
         self.model = DIN(self.user_count, self.item_count, self.cate_count, self.cate_list,
-                    self.args.user_dim, self.args.item_dim, self.args.cate_dim, self.args.dim_layers)
+                    self.user_dim, self.item_dim, self.cate_dim, self.dim_layers)
 
         self.model.set_method(self.method_idx)
         return True
@@ -129,8 +151,8 @@ class DINTrainer:
         self.last_save_loss = 0.
         self.last_save_auc = 0.
 
-        if os.path.exists(self.args.model_path + self.method_name + "/"):
-            model_list = os.listdir(self.args.model_path + self.method_name + "/")
+        if os.path.exists(self.model_path + self.method_name + "/"):
+            model_list = os.listdir(self.model_path + self.method_name + "/")
             for model_name in model_list:
                 if "DIN" == model_name[:3]:
                     model_name_split_list = model_name.split(".ckpt")[0].split("best_")[1].split("_")
@@ -149,9 +171,9 @@ class DINTrainer:
             if self.last_save_auc > 0:
                 try:
                     print("start load weights from :")
-                    print(self.args.model_path + self.method_name + "/" + last_save_model_name)
+                    print(self.model_path + self.method_name + "/" + last_save_model_name)
                     self.model.load_weights(
-                        self.args.model_path + self.method_name + "/" + last_save_model_name)
+                        self.model_path + self.method_name + "/" + last_save_model_name)
                     self.update_decay_lr()
                     return True
                 except:
@@ -170,14 +192,14 @@ class DINTrainer:
     def save_best_model(self):
         last_save_model_name = \
             self.get_model_name(self.last_global_step, self.last_save_loss, self.last_save_auc)
-        if os.path.exists(self.args.model_path + self.method_name + "/"):
-            saved_model_name_list = os.listdir(self.args.model_path + self.method_name + "/")
+        if os.path.exists(self.model_path + self.method_name + "/"):
+            saved_model_name_list = os.listdir(self.model_path + self.method_name + "/")
             for save_model_name in saved_model_name_list:
                 if last_save_model_name in save_model_name:
-                    os.remove(self.args.model_path + self.method_name + "/" + save_model_name)
+                    os.remove(self.model_path + self.method_name + "/" + save_model_name)
 
         new_save_model_name = self.get_model_name(self.global_step, self.best_loss, self.best_auc)
-        self.model.save_weights(self.args.model_path + self.method_name + "/" + new_save_model_name)
+        self.model.save_weights(self.model_path + self.method_name + "/" + new_save_model_name)
         self.last_global_step = self.global_step
         self.last_save_loss = self.best_loss
         self.last_save_auc = self.best_auc
@@ -199,25 +221,37 @@ class DINTrainer:
         print("trainning with decayed_lr =", self.decayed_lr)
         return True
 
-    def init_env(self, method_idx, decay_rate=None, decay_steps=None):
+    def init_env(self, method_idx, dataset_path, decay_rate=None, decay_steps=None):
+        print("start set trainning method...")
         if not self.set_method(method_idx):
             return False
+        print("SUCCESS!")
 
-        if not self.load_dataset():
+        print("start load trainning and testing dataset...")
+        if not self.load_dataset(dataset_path):
             return False
+        print("SUCCESS!")
 
+        print("start load optimizer, loss_metric, auc_metric and lr...")
         if not self.load_train_objects():
             return False
+        print("SUCCESS!")
 
+        print("start set decayed lr param...")
         if not self.set_decayed_lr_param(decay_rate, decay_steps):
             return False
+        print("SUCCESS!")
 
+        print("start load model structure...")
         if not self.load_model():
             return False
+        print("SUCCESS!")
 
+        print("start load trained model weights...")
         if not self.load_trained_model_param():
             print("NOTE: this might be a tf2 keras official bug")
             return False
+        print("SUCCESS!")
 
         return True
 
@@ -235,10 +269,9 @@ class DINTrainer:
         return True
 
     def train(self):
-        start_time = time.time()
-        for epoch in range(self.args.epochs):
+        for epoch in range(self.epochs):
 
-            pbar = tqdm(total=self.args.print_step, desc="TRAIN")
+            pbar = tqdm(total=self.print_step, desc="TRAIN")
 
             for step, (u, i, y, hist_i, sl) in enumerate(self.train_data, start=1):
                 if not self.train_one_step(u, i, y, hist_i, sl):
@@ -246,11 +279,11 @@ class DINTrainer:
 
                 pbar.update(1)
 
-                if step % self.args.print_step == 0:
+                if step % self.print_step == 0:
                     pbar.close()
 
                     test_gauc, auc = eval(self.model, self.test_data)
-                    current_loss = self.loss_metric.result() / self.args.print_step
+                    current_loss = self.loss_metric.result() / self.print_step
 
                     print('Epoch %d Global_step %d\tTrain_loss: %.4f\tEval_GAUC: %.4f\tEval_AUC: %.4f' %
                           (epoch, step, current_loss, test_gauc, auc))
@@ -258,7 +291,7 @@ class DINTrainer:
                     with self.train_summary_writer.as_default():
                         tf.summary.scalar('loss', current_loss, step=self.global_step)
                         tf.summary.scalar('test_gauc', test_gauc, step=self.global_step)
-                        self.global_step += self.args.print_step
+                        self.global_step += self.print_step
 
                     if self.best_auc < test_gauc:
                         self.best_loss = current_loss
@@ -268,7 +301,7 @@ class DINTrainer:
 
                     self.loss_metric.reset_states()
 
-                    pbar = tqdm(total=self.args.print_step, desc="TRAIN")
+                    pbar = tqdm(total=self.print_step, desc="TRAIN")
 
             self.loss_metric.reset_states()
 
@@ -276,12 +309,11 @@ class DINTrainer:
 
             self.optimizer = tf.keras.optimizers.SGD(learning_rate=self.decayed_lr, momentum=0.0)
 
-            print('Epoch %d DONE\tCost time: %.2f' % (epoch, time.time()-start_time))
-        print('Best test_gauc: ', self.best_auc)
+            print('==== Epoch:', epoch, '-> Best test_gauc:', self.best_auc, "====")
         return True
 
 if __name__ == '__main__':
     din_trainer = DINTrainer()
-    din_trainer.init_env(method_idx=3)
+    din_trainer.init_env(method_idx=3, dataset_path="../datasets/dataset-100.pkl")
     din_trainer.train()
 

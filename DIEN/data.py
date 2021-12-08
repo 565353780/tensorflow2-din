@@ -1,21 +1,5 @@
-import sys
-import random
-import pickle
 import numpy as np
 import tensorflow as tf
-
-from config import argparser
-
-args = argparser()
-
-#  with open(args.dataset_dir+'dataset.pkl', 'rb') as f:
-with open('../datasets/dataset-100.pkl', 'rb') as f:
-    train_set = pickle.load(f, encoding='latin1')
-    test_set = pickle.load(f, encoding='latin1')
-    cate_list = pickle.load(f, encoding='latin1')
-    cate_list = tf.convert_to_tensor(cate_list, dtype=tf.int64)
-    user_count, item_count, cate_count = pickle.load(f)
-
 
 class DataLoader:
     def __init__(self, batch_size, data):
@@ -108,3 +92,4 @@ class DataLoaderTest:
 def get_dataloader(train_batch_size, test_batch_size):
     return DataLoader(train_batch_size, train_set), DataLoaderTest(test_batch_size, test_set), \
            user_count, item_count, cate_count, cate_list
+
