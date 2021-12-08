@@ -5,6 +5,7 @@
 conda create -n tf python=3.7
 conda activate tf
 pip install tensorflow-gpu tqdm
+ln -s <your-datasets-folder-path> ./datasets
 ```
 
 ## Run

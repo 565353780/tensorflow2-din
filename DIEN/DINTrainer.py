@@ -25,22 +25,23 @@ from utils import eval
 
 class DINTrainer:
     def __init__(self):
-        self.lr=0.1
-        self.train_batch_size=32
-        self.test_batch_size=512
-        self.epochs=10000
-        self.print_step=10000
-        self.model_path="./models/"
-        self.log_path="./logs/"
-        self.is_reuse=False
-        self.multi_gpu=False
-        self.user_count=192403
-        self.item_count=63001
-        self.cate_count=801
-        self.user_dim=128
-        self.item_dim=64
-        self.cate_dim=64
-        self.dim_layers=[80, 40, 1]
+        self.lr = 0.1 # learning rate
+        self.train_batch_size = 32 # batch size
+        self.test_batch_size = 512 # batch size
+        self.epochs = 10000 # number of epochs
+        self.print_step = 10000 # step size for print log
+        self.dataset_dir = "../datasets/private/Ad/amazon/np_prepro/" # dataset path
+        self.model_path = "./models/" # model load path
+        self.log_path = "./logs/" # log path for tensorboard
+        self.is_reuse = False
+        self.multi_gpu = False
+        self.user_count = 192403 # number of users
+        self.item_count = 63001 # number of items
+        self.cate_count = 801 # number of categories
+        self.user_dim = 128 # dimension of user
+        self.item_dim = 64 # dimension of item
+        self.cate_dim = 64 # dimension of category
+        self.dim_layers = [80, 40, 1]
 
         self.train_data = None
         self.test_data = None

@@ -9,7 +9,7 @@ def argparser():
     parser.add_argument('--epochs', default=10000, help='number of epochs', type=int)
     parser.add_argument('--print_step', default=10000, help='step size for print log', type=int)
 
-    parser.add_argument('--dataset_dir', default='./data/private/Ad/amazon/np_prepro/', help='dataset path')
+    parser.add_argument('--dataset_dir', default='../datasets/private/Ad/amazon/np_prepro/', help='dataset path')
     parser.add_argument('--model_path', default='./models/', help='model load path', type=str)
     parser.add_argument('--log_path', default='./logs/', help='log path fot tensorboard', type=str)
     parser.add_argument('--is_reuse', default=False)
