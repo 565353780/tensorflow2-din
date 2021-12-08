@@ -13,11 +13,6 @@ cd din-tf2
 mklink /D <path-to-your-datasets-folder> ./datasets
 # linux
 ln -s <path-to-your-datasets-folder> ./datasets
-
-cd datasets
-# change Settings in build_dataset.py if needed
-python build_dataset.py
-cd..
 ```
 
 ### NOTE
@@ -35,8 +30,6 @@ din-tf2/
 |   |---Criteo/
 |   |---raw_data/
 |   |---build_dataset.py
-|   |---dataset-100.pkl
-|   |---dataset.pkl
 |   |---...
 |
 |---DIEN/
@@ -66,7 +59,15 @@ din-tf2/
 ```bash
 conda create -n tf python=3.7
 conda activate tf
-pip install tensorflow-gpu tqdm
+pip install tensorflow-gpu tqdm pandas
+```
+
+## Create your own datasets
+```bash
+cd DIEN
+# change Settings in build_dataset.py if needed
+python build_dataset.py
+cd ..
 ```
 
 ## Run
