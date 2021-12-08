@@ -46,6 +46,9 @@ class DINTrainer:
 
         self.dataset_pkl_creater = DatasetPklCreater()
 
+        self.pos_list_len_max = None
+        self.use_din_source_method = None
+
         self.train_data = None
         self.test_data = None
         self.user_count = None
@@ -74,12 +77,12 @@ class DINTrainer:
         self.last_save_loss = None
         self.last_save_auc = None
 
-        self.train_summary_writer = None
-
         self.source_lr = None
         self.decay_rate = None
         self.decay_steps = None
         self.decayed_lr = None
+
+        self.train_summary_writer = None
         return
 
     def print_tf_info(self):
@@ -90,7 +93,8 @@ class DINTrainer:
     def create_dataset_pkl(self, pos_list_len_max, use_din_source_method):
         if not self.dataset_pkl_creater.load_remap_pkl():
             return False
-        return self.dataset_pkl_creater.create_dataset_pkl(pos_list_len_max, use_din_source_method)
+        return self.dataset_pkl_creater.create_dataset_pkl(
+            pos_list_len_max, use_din_source_method)
 
     def set_method(self, method_idx):
         self.method_idx = method_idx
@@ -124,9 +128,11 @@ class DINTrainer:
     def set_learning_rate_param(self, source_lr, decay_rate, decay_steps):
         if source_lr is None:
             self.source_lr = self.lr
+            self.decayed_lr = self.source_lr
         else:
             self.source_lr = source_lr
-            self.optimizer = tf.keras.optimizers.SGD(learning_rate=self.source_lr, momentum=0.0)
+            self.decayed_lr = self.source_lr
+            self.optimizer = tf.keras.optimizers.SGD(learning_rate=self.decayed_lr, momentum=0.0)
 
         if decay_rate is None:
             self.decay_rate = 0.9
@@ -142,9 +148,11 @@ class DINTrainer:
 
     def set_summary_writer(self):
         log_name = self.method_name
-        log_name += "_lr_" + str(self.lr)
-        log_name += "_decay_rate_" + str(self.decay_rate)
-        log_name += "_decay_steps_" + str(self.decay_steps)
+        log_name += "_PosListLenMax_" + str(self.pos_list_len_max)
+        log_name += "_UseDinSourceMethod_" + str(self.use_din_source_method)
+        log_name += "_Lr_" + str(self.lr)
+        log_name += "_DecayRate_" + str(self.decay_rate)
+        log_name += "_DecaySteps_" + str(self.decay_steps)
 
         self.train_summary_writer = tf.summary.create_file_writer(
             self.log_path + log_name)
@@ -233,7 +241,6 @@ class DINTrainer:
 
         self.optimizer = tf.keras.optimizers.SGD(learning_rate=self.decayed_lr, momentum=0.0)
 
-        print("trainning with decayed_lr =", self.decayed_lr)
         return True
 
     def init_env(self,
@@ -244,6 +251,8 @@ class DINTrainer:
                  decay_rate=None,
                  decay_steps=None):
         print("start create dataset...")
+        self.pos_list_len_max = pos_list_len_max
+        self.use_din_source_method = use_din_source_method
         if self.dataset_pkl_creater.is_dataset_exists(pos_list_len_max, use_din_source_method):
             print("model already exists, skip creating process")
         else:
@@ -331,6 +340,8 @@ class DINTrainer:
 
                     with self.train_summary_writer.as_default():
                         tf.summary.scalar('test_gauc', test_gauc, step=self.global_step)
+                        tf.summary.scalar('lr', self.decayed_lr, step=self.global_step)
+
 
                     if self.best_auc < test_gauc:
                         self.best_loss = current_loss
