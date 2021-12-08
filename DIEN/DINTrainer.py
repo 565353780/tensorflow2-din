@@ -116,14 +116,18 @@ class DINTrainer:
         return True
 
     def load_train_objects(self):
-        self.source_lr = self.lr
-        self.decayed_lr = self.source_lr
-        self.optimizer = tf.keras.optimizers.SGD(learning_rate=self.decayed_lr, momentum=0.0)
+        self.optimizer = tf.keras.optimizers.SGD(learning_rate=self.lr, momentum=0.0)
         self.loss_metric = tf.keras.metrics.Sum()
         self.auc_metric = tf.keras.metrics.AUC()
         return True
 
-    def set_decayed_lr_param(self, decay_rate, decay_steps):
+    def set_learning_rate_param(self, source_lr, decay_rate, decay_steps):
+        if source_lr is None:
+            self.source_lr = self.lr
+        else:
+            self.source_lr = source_lr
+            self.optimizer = tf.keras.optimizers.SGD(learning_rate=self.source_lr, momentum=0.0)
+
         if decay_rate is None:
             self.decay_rate = 0.9
         else:
@@ -226,14 +230,19 @@ class DINTrainer:
 
         if self.decayed_lr < min_lr:
             self.decayed_lr = min_lr
-            return True
 
         self.optimizer = tf.keras.optimizers.SGD(learning_rate=self.decayed_lr, momentum=0.0)
 
         print("trainning with decayed_lr =", self.decayed_lr)
         return True
 
-    def init_env(self, method_idx, pos_list_len_max, use_din_source_method, decay_rate=None, decay_steps=None):
+    def init_env(self,
+                 method_idx,
+                 pos_list_len_max,
+                 use_din_source_method,
+                 source_lr=None,
+                 decay_rate=None,
+                 decay_steps=None):
         print("start create dataset...")
         if self.dataset_pkl_creater.is_dataset_exists(pos_list_len_max, use_din_source_method):
             print("model already exists, skip creating process")
@@ -259,7 +268,7 @@ class DINTrainer:
         print("SUCCESS!")
 
         print("start set decayed lr param...")
-        if not self.set_decayed_lr_param(decay_rate, decay_steps):
+        if not self.set_learning_rate_param(source_lr, decay_rate, decay_steps):
             return False
         print("SUCCESS!")
 
@@ -315,7 +324,6 @@ class DINTrainer:
                     test_gauc, auc = eval(self.model, self.test_data)
 
                     current_loss = self.loss_metric.result() / self.print_step
-
                     self.loss_metric.reset_states()
 
                     print('Epoch %d Global_step %d\tTrain_loss: %.4f\tEval_GAUC: %.4f\tEval_AUC: %.4f' %
@@ -343,6 +351,11 @@ class DINTrainer:
 
 if __name__ == '__main__':
     din_trainer = DINTrainer()
-    din_trainer.init_env(method_idx=3, pos_list_len_max=100, use_din_source_method=True)
+    din_trainer.init_env(method_idx=3,
+                         pos_list_len_max=100,
+                         use_din_source_method=True,
+                         source_lr=0.1,
+                         decay_rate=0.9,
+                         decay_steps=80000)
     din_trainer.train()
 
