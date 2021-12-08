@@ -128,7 +128,7 @@ class DINTrainer:
 
     def set_decayed_lr_param(self, decay_rate, decay_steps):
         if decay_rate is None:
-            self.decay_rate = 0.999
+            self.decay_rate = 0.9
         else:
             self.decay_rate = decay_rate
 
