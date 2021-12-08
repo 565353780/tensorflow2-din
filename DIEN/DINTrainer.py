@@ -267,7 +267,7 @@ class DINTrainer:
         self.optimizer.apply_gradients(zip(clip_gradient, self.model.trainable_variables))
 
         self.loss_metric(loss)
-        return True
+        return loss
 
     def train(self):
         for epoch in range(self.epochs):
@@ -275,32 +275,35 @@ class DINTrainer:
             pbar = tqdm(total=self.print_step, desc="TRAIN")
 
             for step, (u, i, y, hist_i, sl) in enumerate(self.train_data, start=1):
-                if not self.train_one_step(u, i, y, hist_i, sl):
-                    return False
+                step_loss = self.train_one_step(u, i, y, hist_i, sl)
 
                 pbar.update(1)
+
+                self.global_step += 1
+
+                with self.train_summary_writer.as_default():
+                    tf.summary.scalar('loss', step_loss, step=self.global_step)
 
                 if step % self.print_step == 0:
                     pbar.close()
 
                     test_gauc, auc = eval(self.model, self.test_data)
+
                     current_loss = self.loss_metric.result() / self.print_step
+
+                    self.loss_metric.reset_states()
 
                     print('Epoch %d Global_step %d\tTrain_loss: %.4f\tEval_GAUC: %.4f\tEval_AUC: %.4f' %
                           (epoch, step, current_loss, test_gauc, auc))
 
                     with self.train_summary_writer.as_default():
-                        tf.summary.scalar('loss', current_loss, step=self.global_step)
                         tf.summary.scalar('test_gauc', test_gauc, step=self.global_step)
-                        self.global_step += self.print_step
 
                     if self.best_auc < test_gauc:
                         self.best_loss = current_loss
                         self.best_auc = test_gauc
 
-                    self.save_best_model()
-
-                    self.loss_metric.reset_states()
+                        self.save_best_model()
 
                     pbar = tqdm(total=self.print_step, desc="TRAIN")
 
