@@ -22,6 +22,7 @@ from tqdm import tqdm
 from data import DataLoader, DataLoaderTest
 from model import Base, DIN, DIEN
 from utils import eval
+from DatasetPklCreater import DatasetPklCreater
 
 class DINTrainer:
     def __init__(self):
@@ -42,6 +43,8 @@ class DINTrainer:
         self.item_dim = 64 # dimension of item
         self.cate_dim = 64 # dimension of category
         self.dim_layers = [80, 40, 1]
+
+        self.dataset_pkl_creater = DatasetPklCreater()
 
         self.train_data = None
         self.test_data = None
@@ -84,9 +87,10 @@ class DINTrainer:
         print("GPU Available: ", tf.test.is_gpu_available())
         return True
 
-    def print_method_list(self):
-        print(self.method_list)
-        return True
+    def create_dataset_pkl(self, pos_list_len_max, use_din_source_method):
+        if not self.dataset_pkl_creater.load_remap_pkl():
+            return False
+        return self.dataset_pkl_creater.create_dataset_pkl(pos_list_len_max, use_din_source_method)
 
     def set_method(self, method_idx):
         self.method_idx = method_idx
@@ -222,14 +226,23 @@ class DINTrainer:
         print("trainning with decayed_lr =", self.decayed_lr)
         return True
 
-    def init_env(self, method_idx, dataset_path, decay_rate=None, decay_steps=None):
+    def init_env(self, method_idx, pos_list_len_max, use_din_source_method, decay_rate=None, decay_steps=None):
+        print("start create dataset...")
+        if self.dataset_pkl_creater.is_dataset_exists(pos_list_len_max, use_din_source_method):
+            print("model already exists, skip creating process")
+        else:
+            if not self.create_dataset_pkl(pos_list_len_max, use_din_source_method):
+                return False
+        print("SUCCESS!")
+
         print("start set trainning method...")
         if not self.set_method(method_idx):
             return False
         print("SUCCESS!")
 
         print("start load trainning and testing dataset...")
-        if not self.load_dataset(dataset_path):
+        if not self.load_dataset(
+                "../datasets/" + self.dataset_pkl_creater.get_dataset_name(pos_list_len_max, use_din_source_method)):
             return False
         print("SUCCESS!")
 
@@ -318,6 +331,6 @@ class DINTrainer:
 
 if __name__ == '__main__':
     din_trainer = DINTrainer()
-    din_trainer.init_env(method_idx=3, dataset_path="../datasets/dataset-100.pkl")
+    din_trainer.init_env(method_idx=3, pos_list_len_max=100, use_din_source_method=True)
     din_trainer.train()
 
