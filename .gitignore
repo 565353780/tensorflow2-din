@@ -4,9 +4,8 @@ __pycache__
 
 # dataset
 datasets
-data
-raw_data
 
 # train
 logs
 models
+
