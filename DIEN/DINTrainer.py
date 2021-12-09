@@ -327,15 +327,14 @@ class DINTrainer:
 
         for epoch in range(self.epochs):
 
+            saved_loss_num = 0
             pbar = tqdm(total=self.print_step, desc="TRAIN")
 
-            saved_loss_num = 0
             for step, (u, i, y, hist_i, sl) in enumerate(self.train_data, start=1):
                 self.train_one_step(u, i, y, hist_i, sl)
-                saved_loss_num += 1
 
                 pbar.update(1)
-
+                saved_loss_num += 1
                 self.global_step += 1
 
                 if self.global_step % self.loss_print_step == 0:
