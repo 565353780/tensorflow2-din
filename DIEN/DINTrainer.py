@@ -313,6 +313,10 @@ class DINTrainer:
         return loss
 
     def train(self):
+        with self.train_summary_writer.as_default():
+            tf.summary.scalar('test_gauc', self.best_auc, step=self.global_step)
+            tf.summary.scalar('lr', self.decayed_lr, step=self.global_step)
+
         for epoch in range(self.epochs):
 
             pbar = tqdm(total=self.print_step, desc="TRAIN")
