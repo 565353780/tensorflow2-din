@@ -30,6 +30,7 @@ class DINTrainer:
         self.train_batch_size = 32 # batch size
         self.test_batch_size = 512 # batch size
         self.epochs = 10000 # number of epochs
+        self.loss_print_step = 100 # step size for print log
         self.print_step = 10000 # step size for print log
         self.dataset_dir = "../datasets/raw_data/" # dataset path
         self.model_path = "./models/" # model load path
@@ -313,7 +314,7 @@ class DINTrainer:
         self.optimizer.apply_gradients(zip(clip_gradient, self.model.trainable_variables))
 
         self.loss_metric(loss)
-        return loss
+        return True
 
     def train(self):
         with self.train_summary_writer.as_default():
@@ -324,30 +325,30 @@ class DINTrainer:
             pbar = tqdm(total=self.print_step, desc="TRAIN")
 
             for step, (u, i, y, hist_i, sl) in enumerate(self.train_data, start=1):
-                step_loss = self.train_one_step(u, i, y, hist_i, sl)
+                self.train_one_step(u, i, y, hist_i, sl)
 
                 pbar.update(1)
 
                 self.global_step += 1
 
-                with self.train_summary_writer.as_default():
-                    tf.summary.scalar('loss', step_loss, step=self.global_step)
+                if self.global_step % self.loss_print_step == 0:
+                    current_loss = self.loss_metric.result() / self.print_step
+                    self.loss_metric.reset_states()
 
-                if step % self.print_step == 0:
+                    with self.train_summary_writer.as_default():
+                        tf.summary.scalar('loss', current_loss, step=self.global_step)
+
+                if self.global_step % self.print_step == 0:
                     pbar.close()
 
                     test_gauc, auc = eval(self.model, self.test_data)
 
-                    current_loss = self.loss_metric.result() / self.print_step
-                    self.loss_metric.reset_states()
-
-                    print('Epoch %d Global_step %d\tTrain_loss: %.4f\tEval_GAUC: %.4f\tEval_AUC: %.4f' %
-                          (epoch, step, current_loss, test_gauc, auc))
+                    print('Epoch %d Global_step %d\tEval_GAUC: %.4f\tEval_AUC: %.4f' %
+                          (epoch, step, test_gauc, auc))
 
                     with self.train_summary_writer.as_default():
                         tf.summary.scalar('test_gauc', test_gauc, step=self.global_step)
                         tf.summary.scalar('lr', self.decayed_lr, step=self.global_step)
-
 
                     if self.best_auc < test_gauc:
                         self.best_loss = current_loss
@@ -360,9 +361,9 @@ class DINTrainer:
             self.loss_metric.reset_states()
 
             self.update_decay_lr()
-
             self.optimizer = tf.keras.optimizers.SGD(learning_rate=self.decayed_lr, momentum=0.0)
-            print('==== Epoch:', epoch, '-> Best test_gauc:', self.best_auc, "====")
+
+            print('==== Epoch:', epoch, '-> Best test_gauc:', float(self.best_auc), "====")
         return True
 
 if __name__ == '__main__':
@@ -372,6 +373,6 @@ if __name__ == '__main__':
                          use_din_source_method=True,
                          source_lr=0.1,
                          decay_rate=0.9,
-                         decay_steps=80000)
+                         decay_steps=None)
     din_trainer.train()
 
