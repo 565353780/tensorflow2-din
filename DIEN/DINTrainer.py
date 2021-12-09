@@ -175,8 +175,8 @@ class DINTrainer:
         self.last_save_loss = 0.
         self.last_save_auc = 0.
 
-        print("not load for testing only, return False here.")
-        return False
+        #  print("not load for testing only, return False here.")
+        #  return False
 
         if os.path.exists(self.model_path + self.method_name + "/"):
             model_list = os.listdir(self.model_path + self.method_name + "/")
@@ -362,7 +362,6 @@ class DINTrainer:
             self.update_decay_lr()
 
             self.optimizer = tf.keras.optimizers.SGD(learning_rate=self.decayed_lr, momentum=0.0)
-
             print('==== Epoch:', epoch, '-> Best test_gauc:', self.best_auc, "====")
         return True
 
