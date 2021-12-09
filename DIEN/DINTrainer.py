@@ -175,6 +175,9 @@ class DINTrainer:
         self.last_save_loss = 0.
         self.last_save_auc = 0.
 
+        print("not load for testing only, return False here.")
+        return False
+
         if os.path.exists(self.model_path + self.method_name + "/"):
             model_list = os.listdir(self.model_path + self.method_name + "/")
             for model_name in model_list:
@@ -291,11 +294,11 @@ class DINTrainer:
             return False
         print("SUCCESS!")
 
-        #  print("start load trained model weights...")
-        #  if not self.load_trained_model_param():
-            #  print("NOTE: this might be a tf2 keras official bug")
-            #  return False
-        #  print("SUCCESS!")
+        print("start load trained model weights...")
+        if not self.load_trained_model_param():
+            print("NOTE: this might be a tf2 keras official bug")
+            return False
+        print("SUCCESS!")
 
         return True
 
@@ -314,7 +317,6 @@ class DINTrainer:
 
     def train(self):
         with self.train_summary_writer.as_default():
-            tf.summary.scalar('test_gauc', self.best_auc, step=self.global_step)
             tf.summary.scalar('lr', self.decayed_lr, step=self.global_step)
 
         for epoch in range(self.epochs):
