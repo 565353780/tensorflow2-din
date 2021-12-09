@@ -151,7 +151,7 @@ class DINTrainer:
         log_name = self.method_name
         log_name += "_PosListLenMax_" + str(self.pos_list_len_max)
         log_name += "_UseDinSourceMethod_" + str(self.use_din_source_method)
-        log_name += "_Lr_" + str(self.lr)
+        log_name += "_Lr_" + str(self.source_lr)
         log_name += "_DecayRate_" + str(self.decay_rate)
         log_name += "_DecaySteps_" + str(self.decay_steps)
 
