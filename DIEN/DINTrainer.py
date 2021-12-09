@@ -29,9 +29,9 @@ class DINTrainer:
         self.lr = 0.1 # learning rate
         self.train_batch_size = 32 # batch size
         self.test_batch_size = 512 # batch size
-        self.epochs = 10000 # number of epochs
-        self.loss_print_step = 1000 # step size for print loss log
+        self.epochs = 100 # number of epochs
         self.print_step = 10000 # step size for print gauc log
+        self.loss_print_step = min(1000, self.print_step) # step size for print loss log
         self.dataset_dir = "../datasets/raw_data/" # dataset path
         self.model_path = "./models/" # model load path
         self.log_path = "./logs/" # log path for tensorboard
@@ -103,9 +103,11 @@ class DINTrainer:
         return True
 
     def get_model_name(self, step, loss, auc):
-        save_model_name = "DIN_best_step_" + str(step) + \
-            "_loss_" + str(float(loss))[:6] + \
-            "_gauc_" + str(float(auc))[:6] + ".ckpt"
+        save_model_name = "DIN"
+        save_model_name += "_best_step_" + str(step)
+        save_model_name += "_loss_" + str(float(loss))[:6]
+        save_model_name += "_gauc_" + str(float(auc))[:6]
+        save_model_name += ".ckpt"
         return save_model_name
 
     def load_dataset(self, dataset_path):
@@ -163,7 +165,7 @@ class DINTrainer:
         #192403 63001 801 tf.Tensor([738 157 571 ...  63 674 351], shape=(63001,), dtype=int64)
         #print(user_count,item_count,cate_count,cate_list,"111")
         self.model = DIN(self.user_count, self.item_count, self.cate_count, self.cate_list,
-                    self.user_dim, self.item_dim, self.cate_dim, self.dim_layers)
+                         self.user_dim, self.item_dim, self.cate_dim, self.dim_layers)
 
         self.model.set_method(self.method_idx)
         return True
@@ -176,8 +178,8 @@ class DINTrainer:
         self.last_save_loss = 0.
         self.last_save_auc = 0.
 
-        #  print("not load for testing only, return False here.")
-        #  return False
+        # TODO: will always failed, return here
+        return False
 
         if os.path.exists(self.model_path + self.method_name + "/"):
             model_list = os.listdir(self.model_path + self.method_name + "/")
@@ -215,7 +217,7 @@ class DINTrainer:
                     return False
 
         print("trained model not found, now will start trainning from step 0")
-        return True
+        return False
 
     def save_best_model(self):
         last_save_model_name = \
@@ -225,9 +227,13 @@ class DINTrainer:
             for save_model_name in saved_model_name_list:
                 if last_save_model_name in save_model_name:
                     os.remove(self.model_path + self.method_name + "/" + save_model_name)
+        else:
+            os.makedirs(self.model_path + self.method_name + "/")
 
         new_save_model_name = self.get_model_name(self.global_step, self.best_loss, self.best_auc)
-        self.model.save_weights(self.model_path + self.method_name + "/" + new_save_model_name)
+        self.model.save_weights(
+            self.model_path + self.method_name + "/" + new_save_model_name,
+            save_format="tf")
         self.last_global_step = self.global_step
         self.last_save_loss = self.best_loss
         self.last_save_auc = self.best_auc
@@ -295,9 +301,8 @@ class DINTrainer:
             return False
         print("SUCCESS!")
 
-        print("start load trained model weights...")
+        print("start load trained model param...")
         if not self.load_trained_model_param():
-            print("NOTE: this might be a tf2 keras official bug")
             return False
         print("SUCCESS!")
 
