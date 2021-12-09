@@ -12,6 +12,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 '''
 
 import pickle
+import dill
 import tensorflow as tf
 from tqdm import tqdm
 
@@ -164,6 +165,7 @@ class DINTrainer:
     def load_model(self):
         #192403 63001 801 tf.Tensor([738 157 571 ...  63 674 351], shape=(63001,), dtype=int64)
         #print(user_count,item_count,cate_count,cate_list,"111")
+
         self.model = DIN(self.user_count, self.item_count, self.cate_count, self.cate_list,
                          self.user_dim, self.item_dim, self.cate_dim, self.dim_layers)
 
@@ -178,13 +180,15 @@ class DINTrainer:
         self.last_save_loss = 0.
         self.last_save_auc = 0.
 
-        # TODO: will always failed, return here
+        #  TODO: will always failed, return here
         return False
+
+        last_save_model_name = None
 
         if os.path.exists(self.model_path + self.method_name + "/"):
             model_list = os.listdir(self.model_path + self.method_name + "/")
             for model_name in model_list:
-                if "DIN" == model_name[:3]:
+                if ".index" in model_name:
                     model_name_split_list = model_name.split(".ckpt")[0].split("best_")[1].split("_")
                     current_auc = float(model_name_split_list[5])
                     if current_auc > self.last_save_auc:
@@ -203,7 +207,7 @@ class DINTrainer:
                     print("start load weights from :")
                     print(self.model_path + self.method_name + "/" + last_save_model_name)
                     self.model.load_weights(
-                        self.model_path + self.method_name + "/" + last_save_model_name)
+                        self.model_path + self.method_name + "/" + last_save_model_name).expect_partial()
                     self.update_decay_lr()
                     return True
                 except:
@@ -231,9 +235,7 @@ class DINTrainer:
             os.makedirs(self.model_path + self.method_name + "/")
 
         new_save_model_name = self.get_model_name(self.global_step, self.best_loss, self.best_auc)
-        self.model.save_weights(
-            self.model_path + self.method_name + "/" + new_save_model_name,
-            save_format="tf")
+        self.model.save_weights(self.model_path + self.method_name + "/" + new_save_model_name)
         self.last_global_step = self.global_step
         self.last_save_loss = self.best_loss
         self.last_save_auc = self.best_auc
