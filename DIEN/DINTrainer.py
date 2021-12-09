@@ -324,16 +324,19 @@ class DINTrainer:
 
             pbar = tqdm(total=self.print_step, desc="TRAIN")
 
+            saved_loss_num = 0
             for step, (u, i, y, hist_i, sl) in enumerate(self.train_data, start=1):
                 self.train_one_step(u, i, y, hist_i, sl)
+                saved_loss_num += 1
 
                 pbar.update(1)
 
                 self.global_step += 1
 
                 if self.global_step % self.loss_print_step == 0:
-                    current_loss = self.loss_metric.result() / self.print_step
+                    current_loss = self.loss_metric.result() / saved_loss_num
                     self.loss_metric.reset_states()
+                    saved_loss_num = 0
 
                     with self.train_summary_writer.as_default():
                         tf.summary.scalar('loss', current_loss, step=self.global_step)
