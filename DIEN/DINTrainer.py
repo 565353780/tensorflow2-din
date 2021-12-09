@@ -208,11 +208,6 @@ class DINTrainer:
                     self.last_global_step = 0
                     self.last_save_loss = 0.
                     self.last_save_auc = 0.
-
-                    self.model = DIN(self.user_count, self.item_count, self.cate_count, self.cate_list,
-                                self.user_dim, self.item_dim, self.cate_dim, self.dim_layers)
-
-                    self.model.set_method(self.method_idx)
                     return False
 
         print("trained model not found, now will start trainning from step 0")
@@ -296,11 +291,11 @@ class DINTrainer:
             return False
         print("SUCCESS!")
 
-        print("start load trained model weights...")
-        if not self.load_trained_model_param():
-            print("NOTE: this might be a tf2 keras official bug")
-            return False
-        print("SUCCESS!")
+        #  print("start load trained model weights...")
+        #  if not self.load_trained_model_param():
+            #  print("NOTE: this might be a tf2 keras official bug")
+            #  return False
+        #  print("SUCCESS!")
 
         return True
 
