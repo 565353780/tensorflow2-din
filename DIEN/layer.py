@@ -51,12 +51,10 @@ class attention(tf.keras.layers.Layer):
         # outer product ?
         din_all = tf.concat([queries, keys, queries-keys, queries*keys], axis=-1)
 
-        outputs = tf.transpose(self.fc(din_all), [0,2,1])
-        print(outputs.shape)
-
         din_all_conv_inputs = tf.expand_dims(din_all, axis=3)
         din_all_conv_outputs = self.conv(din_all_conv_inputs)
-        outputs = tf.transpose(self.fc(din_all_conv_outputs), [0,2,1])
+        din_all_conv_reshape_outputs = tf.reshape(din_all_conv_outputs, din_all_conv_outputs.shape[:-1])
+        outputs = tf.transpose(self.fc(din_all_conv_reshape_outputs), [0,2,1])
 
         # Mask
         key_masks = tf.sequence_mask(keys_length, max(keys_length), dtype=tf.bool)  # [B, T]
