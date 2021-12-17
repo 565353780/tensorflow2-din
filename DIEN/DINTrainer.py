@@ -30,7 +30,7 @@ class DINTrainer:
         self.train_batch_size = 32 # batch size
         self.test_batch_size = 512 # batch size
         self.epochs = 100 # number of epochs
-        self.print_step = 10000 # step size for print gauc log
+        self.print_step = 100 # step size for print gauc log
         self.loss_print_step = min(1000, self.print_step) # step size for print loss log
         self.dataset_dir = "../datasets/raw_data/" # dataset path
         self.model_path = "./models/" # model load path
@@ -103,10 +103,8 @@ class DINTrainer:
 
     def set_method(self, method_idx):
         self.method_idx = method_idx
-        self.method_name = [
-            self.method_list[0][self.method_idx[0]],
+        self.method_name = self.method_list[0][self.method_idx[0]] + "_" + \
             self.method_list[1][self.method_idx[1]]
-        ]
         return True
 
     def get_model_name(self, step, loss, auc):
@@ -157,7 +155,7 @@ class DINTrainer:
         return True
 
     def set_summary_writer(self):
-        log_name = self.method_name[0] + "_" + self.method_name[1]
+        log_name = self.method_name
         log_name += "_PosListLenMax_" + str(self.pos_list_len_max)
         log_name += "_UseDinSourceMethod_" + str(self.use_din_source_method)
         log_name += "_Lr_" + str(self.source_lr)
