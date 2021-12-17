@@ -30,7 +30,7 @@ class DINTrainer:
         self.train_batch_size = 32 # batch size
         self.test_batch_size = 512 # batch size
         self.epochs = 100 # number of epochs
-        self.print_step = 100 # step size for print gauc log
+        self.print_step = 10000 # step size for print gauc log
         self.loss_print_step = min(1000, self.print_step) # step size for print loss log
         self.dataset_dir = "../datasets/raw_data/" # dataset path
         self.model_path = "./models/" # model load path
