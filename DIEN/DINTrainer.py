@@ -381,7 +381,7 @@ class DINTrainer:
 
 if __name__ == '__main__':
     din_trainer = DINTrainer()
-    din_trainer.init_env(method_idx=[3, 1],
+    din_trainer.init_env(method_idx=[0, 0],
                          pos_list_len_max=100,
                          use_din_source_method=True,
                          source_lr=0.1,
