@@ -5,10 +5,14 @@ from DINTrainer import DINTrainer
 
 '''
 method:
+DIN:
     0: "Source"
     1: "AFM-Add-to-Output" # make output wrong size (32, 32)
     2: "AFM-Add-to-Attention-Output"
     3: "AFM-With-Candidate"
+Attention:
+    0: "Source"
+    1: "Add-Conv2D-to-Attention"
 
 pos_list_len_max:
     >1: set pos_list in dataset not longer than this value
@@ -30,10 +34,10 @@ decay_steps: learning rate will be changed after steps with this value
 
 if __name__ == '__main__':
     din_trainer = DINTrainer()
-    din_trainer.init_env(method_idx=3,
-                         pos_list_len_max=60,
+    din_trainer.init_env(method_idx=[3, 1],
+                         pos_list_len_max=30,
                          use_din_source_method=True,
-                         source_lr=0.05,
+                         source_lr=0.1,
                          decay_rate=0.9,
                          decay_steps=None)
     din_trainer.train()

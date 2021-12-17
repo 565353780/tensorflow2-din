@@ -12,7 +12,6 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 '''
 
 import pickle
-import dill
 import tensorflow as tf
 from tqdm import tqdm
 
@@ -64,11 +63,15 @@ class DINTrainer:
 
         self.model = None
 
-        self.method_list = [
+        self.method_list = [[
             "Source",
             "AFM-Add-to-Output",
             "AFM-Add-to-Attention-Output",
-            "AFM-With-Candidate"]
+            "AFM-With-Candidate"
+            ],[
+                "Source",
+                "Add-Conv2D-to-Attention"
+            ]]
         self.method_idx = None
         self.method_name = None
 
@@ -100,7 +103,10 @@ class DINTrainer:
 
     def set_method(self, method_idx):
         self.method_idx = method_idx
-        self.method_name = self.method_list[self.method_idx]
+        self.method_name = [
+            self.method_list[0][self.method_idx[0]],
+            self.method_list[1][self.method_idx[1]]
+        ]
         return True
 
     def get_model_name(self, step, loss, auc):
@@ -151,7 +157,7 @@ class DINTrainer:
         return True
 
     def set_summary_writer(self):
-        log_name = self.method_name
+        log_name = self.method_name[0] + "_" + self.method_name[1]
         log_name += "_PosListLenMax_" + str(self.pos_list_len_max)
         log_name += "_UseDinSourceMethod_" + str(self.use_din_source_method)
         log_name += "_Lr_" + str(self.source_lr)
@@ -377,7 +383,7 @@ class DINTrainer:
 
 if __name__ == '__main__':
     din_trainer = DINTrainer()
-    din_trainer.init_env(method_idx=3,
+    din_trainer.init_env(method_idx=[3, 1],
                          pos_list_len_max=100,
                          use_din_source_method=True,
                          source_lr=0.1,

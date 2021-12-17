@@ -7,12 +7,21 @@ class attention(tf.keras.layers.Layer):
         super(attention, self).__init__()
         self.keys_dim = keys_dim
 
+        self.conv = tf.keras.layers.Conv2D(filters=1, kernel_size=[3, 3], strides=[1, 1], padding="same")
+
         self.fc = tf.keras.Sequential()
         for dim_layer in dim_layers[:-1]:
             self.fc.add(nn.Dense(dim_layer, activation='sigmoid'))
         self.fc.add(nn.Dense(dim_layers[-1], activation=None))
 
-    def call(self, queries, keys, keys_length):
+        self.method_idx = None
+        return
+
+    def set_method(self, method_idx):
+        self.method_idx = method_idx
+        return True
+
+    def source_method(self, queries, keys, keys_length):
         queries = tf.tile(tf.expand_dims(queries, 1), [1, tf.shape(keys)[1], 1])
         # outer product ?
         din_all = tf.concat([queries, keys, queries-keys, queries*keys], axis=-1)
@@ -32,8 +41,46 @@ class attention(tf.keras.layers.Layer):
 
         # Weighted sum
         outputs = tf.squeeze(tf.matmul(outputs, keys))  # [B, H]
-
         return outputs
+
+    def add_conv_to_filter_din_all(self, queries, keys, keys_length):
+        '''
+        method 1: add conv to filter din_all data
+        '''
+        queries = tf.tile(tf.expand_dims(queries, 1), [1, tf.shape(keys)[1], 1])
+        # outer product ?
+        din_all = tf.concat([queries, keys, queries-keys, queries*keys], axis=-1)
+
+        din_all_conv_inputs = tf.expand_dims(din_all, axis=3)
+        din_all_conv_outputs = self.conv(din_all_conv_inputs)
+        outputs = tf.transpose(self.fc(din_all_conv_outputs), [0,2,1])
+
+        # Mask
+        key_masks = tf.sequence_mask(keys_length, max(keys_length), dtype=tf.bool)  # [B, T]
+        key_masks = tf.expand_dims(key_masks, 1)
+        paddings = tf.ones_like(outputs) * (-2 ** 32 + 1)
+        outputs = tf.where(key_masks, outputs, paddings)  # [B, 1, T]
+
+        # Scale
+        outputs = outputs / (self.keys_dim ** 0.5)
+
+        # Activation
+        outputs = tf.keras.activations.softmax(outputs, -1)  # [B, 1, T]
+
+        # Weighted sum
+        outputs = tf.squeeze(tf.matmul(outputs, keys))  # [B, H]
+        return outputs
+
+    def call(self, queries, keys, keys_length):
+        if self.method_idx == 0:
+            return self.source_method(queries, keys, keys_length)
+
+        if self.method_idx == 1:
+            return self.add_conv_to_filter_din_all(queries, keys, keys_length)
+
+        print("method out of range! program will exit...")
+        exit()
+        return None, None
 
 class dice(tf.keras.layers.Layer):
     def __init__(self, feat_dim):

@@ -88,7 +88,8 @@ class DIN(Base):
         return
 
     def set_method(self, method_idx):
-        self.method_idx = method_idx
+        self.method_idx = method_idx[0]
+        self.hist_at.set_method(method_idx[1])
         return True
 
     def source_method(self, user, item, history, length):
@@ -164,6 +165,7 @@ class DIN(Base):
 
         if self.method_idx == 3:
             return self.add_afm_to_attention_output_with_candidate(user, item, history, length)
+
         print("method out of range! program will exit...")
         exit()
         return None, None
