@@ -16,8 +16,9 @@ import tensorflow as tf
 from tqdm import tqdm
 
 # gpus = tf.config.experimental.list_physical_devices(device_type='GPU')
-# tf.config.experimental.set_virtual_device_configuration(gpus[0],
-#                                                         [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5120)])
+#  tf.config.experimental.set_virtual_device_configuration(
+#      gpus[0],
+#      [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5120)])
 
 from data import DataLoader, DataLoaderTest
 from model import Base, DIN, DIEN

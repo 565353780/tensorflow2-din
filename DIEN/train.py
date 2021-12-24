@@ -35,10 +35,10 @@ decay_steps: learning rate will be changed after steps with this value
 if __name__ == '__main__':
     din_trainer = DINTrainer()
     din_trainer.init_env(method_idx=[0, 1],
-                         pos_list_len_max=100,
+                         pos_list_len_max=60,
                          use_din_source_method=True,
                          source_lr=0.1,
-                         decay_rate=0.9,
+                         decay_rate=0.99,
                          decay_steps=None)
     din_trainer.train()
 
